@@ -1,8 +1,9 @@
-import { Copy, Check, Zap, Plus, FlaskConical, Trash2, LayoutGrid, List } from 'lucide-react'
+import { Copy, Check, Zap, Plus, FlaskConical, Trash2, LayoutGrid, List, LogOut } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { AccountStatus } from '../types'
 import { AddAccountModal } from './AddAccountModal'
 import { TestModal } from './TestModal'
+import { apiFetch, clearToken } from '../api'
 
 export function TopBar({ accounts, onUpdate, compact, onToggleCompact }: {
   accounts: AccountStatus[]
@@ -18,7 +19,7 @@ export function TopBar({ accounts, onUpdate, compact, onToggleCompact }: {
   const [baseUrl, setBaseUrl] = useState('')
 
   useEffect(() => {
-    fetch('/admin/config')
+    apiFetch('/admin/config')
       .then(r => r.json())
       .then(data => setBaseUrl(data.public_url))
       .catch(() => setBaseUrl(''))
@@ -40,9 +41,14 @@ export function TopBar({ accounts, onUpdate, compact, onToggleCompact }: {
 
   const clearAll = async () => {
     if (!clearConfirm) { setClearConfirm(true); setTimeout(() => setClearConfirm(false), 3000); return }
-    await fetch('/admin/accounts', { method: 'DELETE' })
+    await apiFetch('/admin/accounts', { method: 'DELETE' })
     setClearConfirm(false)
     await onUpdate()
+  }
+
+  const logout = () => {
+    clearToken()
+    window.dispatchEvent(new Event('bb:unauthorized'))
   }
 
   return (
@@ -108,6 +114,13 @@ export function TopBar({ accounts, onUpdate, compact, onToggleCompact }: {
             >
               <Plus className="w-4 h-4" />
               添加账号
+            </button>
+            <button
+              onClick={logout}
+              title="退出登录"
+              className="flex items-center justify-center w-9 h-9 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>

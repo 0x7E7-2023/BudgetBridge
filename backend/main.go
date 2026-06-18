@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"budgetbridge/internal/auth"
 	"budgetbridge/internal/monitor"
 	"budgetbridge/internal/pool"
 	"budgetbridge/internal/proxy"
@@ -16,12 +17,14 @@ import (
 )
 
 type Config struct {
-	Listen       string               `yaml:"listen"`
-	FrontendPort int                  `yaml:"frontend_port"`
-	UpstreamURL  string               `yaml:"upstream_url"`
-	ModelOverride string              `yaml:"model_override"`
-	PublicURL    string               `yaml:"public_url"`
-	Accounts     []pool.AccountConfig `yaml:"accounts"`
+	Listen            string               `yaml:"listen"`
+	FrontendPort      int                  `yaml:"frontend_port"`
+	UpstreamURL       string               `yaml:"upstream_url"`
+	ModelOverride     string               `yaml:"model_override"`
+	PublicURL         string               `yaml:"public_url"`
+	Accounts          []pool.AccountConfig `yaml:"accounts"`
+	AdminPassword     string               `yaml:"admin_password,omitempty"`
+	AdminPasswordHash string               `yaml:"admin_password_hash,omitempty"`
 }
 
 func main() {
@@ -41,6 +44,21 @@ func main() {
 	}
 	if cfg.FrontendPort == 0 {
 		cfg.FrontendPort = 5173
+	}
+
+	// Auto-hash plaintext admin_password on first run
+	if cfg.AdminPassword != "" {
+		hash, err := auth.HashPassword(cfg.AdminPassword)
+		if err != nil {
+			log.Fatalf("hash admin password: %v", err)
+		}
+		cfg.AdminPassword = ""
+		cfg.AdminPasswordHash = hash
+		out, _ := yaml.Marshal(cfg)
+		if err := os.WriteFile("config.yaml", out, 0644); err != nil {
+			log.Fatalf("save hashed password: %v", err)
+		}
+		log.Printf("admin_password hashed and saved to config.yaml")
 	}
 
 	p := pool.New(cfg.Accounts)
@@ -69,8 +87,10 @@ func main() {
 
 	r.POST("/v1/chat/completions", proxy.Handler(p, cfg.UpstreamURL, cfg.ModelOverride))
 	r.POST("/v1/messages", proxy.AnthropicHandler(p, cfg.UpstreamURL, cfg.ModelOverride))
+	r.POST("/admin/login", proxy.LoginHandler(cfg.AdminPasswordHash))
 
 	adm := r.Group("/admin")
+	adm.Use(auth.Middleware(cfg.AdminPasswordHash))
 	adm.GET("/config", func(c *gin.Context) {
 		pubURL := cfg.PublicURL
 		if pubURL == "" {

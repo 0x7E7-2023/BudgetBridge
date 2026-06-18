@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RefreshCw, Power, Timer, CheckCircle2, XCircle, Clock, TrendingUp, Trash2 } from 'lucide-react'
 import type { AccountStatus } from '../types'
+import { apiFetch } from '../api'
 
 function StatusIcon({ account }: { account: AccountStatus }) {
   if (!account.enabled) return <XCircle className="w-4 h-4 text-red-500" />
@@ -57,7 +58,7 @@ export function AccountCard({ account, onUpdate, compact = false }: {
   const call = async (path: string, key: string) => {
     setBusy(key)
     try {
-      await fetch(`/admin/accounts/${account.index}/${path}`, { method: 'POST' })
+      await apiFetch(`/admin/accounts/${account.index}/${path}`, { method: 'POST' })
       await onUpdate()
     } finally {
       setBusy(null)
@@ -72,7 +73,7 @@ export function AccountCard({ account, onUpdate, compact = false }: {
     }
     setBusy('delete')
     try {
-      await fetch(`/admin/accounts/${account.index}`, { method: 'DELETE' })
+      await apiFetch(`/admin/accounts/${account.index}`, { method: 'DELETE' })
       await onUpdate()
     } finally {
       setBusy(null)

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"budgetbridge/internal/auth"
 	"budgetbridge/internal/monitor"
 	"budgetbridge/internal/pool"
 
@@ -17,6 +18,27 @@ import (
 )
 
 var httpClient = &http.Client{Timeout: 5 * time.Minute}
+
+func LoginHandler(passwordHash string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if passwordHash == "" {
+			c.JSON(400, gin.H{"error": "auth not configured"})
+			return
+		}
+		var req struct {
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.Password == "" {
+			c.JSON(400, gin.H{"error": "password required"})
+			return
+		}
+		if !auth.CheckPassword(passwordHash, req.Password) {
+			c.JSON(401, gin.H{"error": "invalid password"})
+			return
+		}
+		c.JSON(200, gin.H{"token": auth.NewToken()})
+	}
+}
 
 func Handler(p *pool.Pool, upstream, modelOverride string) gin.HandlerFunc {
 	url := upstream + "/chat/completions"

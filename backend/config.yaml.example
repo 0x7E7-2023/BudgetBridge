@@ -5,6 +5,10 @@ upstream_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
 # 前端展示用的公开地址，留空则自动拼接 hostname:8080
 # public_url: "https://your-domain.com"
 
+# 管理员密码（明文，首次启动后自动 bcrypt 加密并改写此文件）
+# 留空则不启用登录保护
+admin_password: "changeme"
+
 accounts:
   - alias: "账号A"
     api_key: "sk-xxxxxxxxxxxxxxxxxxxx"

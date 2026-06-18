@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useState } from 'react'
+import { apiFetch } from '../api'
 
 const FIELDS = [
   { key: 'alias',     label: '账号别名（选填，留空自动顺延）', placeholder: '账号1', type: 'text',     required: false },
@@ -22,7 +23,7 @@ export function AddAccountModal({ onClose, onAdded }: { onClose: () => void; onA
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/admin/accounts', {
+      const res = await apiFetch('/admin/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
