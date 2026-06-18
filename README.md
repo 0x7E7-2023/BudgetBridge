@@ -10,7 +10,8 @@
 - ⚡ 429 限流自动冷却 60s 并换号重试
 - 🌊 Stream 流式无感重试（先确认 200 再转发给客户端）
 - 🔧 模型名称覆盖（`model_override`），透明替换请求中的模型 ID
-- 📊 React 看板：账号增删、余额查询、启停、测试、清空
+- 📊 React 看板：账号增删改、余额查询、启停、测试、清空
+- 🔐 管理后台登录保护（可选），密码明文填入自动 bcrypt 加密
 
 ## 快速开始
 
@@ -51,7 +52,7 @@ docker compose up -d
 ./scripts/deploy.sh
 ```
 
-脚本会引导填写配置（包括端口），可选自动配置 Nginx + HTTPS。所有配置会写入 `backend/config.yaml`，并自动同步到 Docker 和 Nginx 配置。
+脚本会引导填写配置（包括端口和域名），可选自动配置 Caddy + HTTPS。所有配置会写入 `backend/config.yaml`，并自动同步到 Docker 和 Caddy 配置。
 
 #### 生产环境
 
@@ -97,6 +98,7 @@ Base URL 末尾**不带** `/v1`：
 | 操作 | 位置 | 说明 |
 |------|------|------|
 | 添加账号 | 顶栏右侧 | 填入别名、API Key、AK，立即触发余额查询 |
+| 删除账号 | 卡片底部 | 两次点击确认，先禁用再从池中移除并写回 config.yaml |
 | 清空账号 | 顶栏右侧 | 两次点击确认，写回 config.yaml |
 | 端到端测试 | 顶栏"测试"按钮 | 直接向代理发送真实请求，无需配置外部工具 |
 | 查余额 | 卡片底部 | 立即查询该账号代金券余额 |
@@ -111,6 +113,7 @@ Base URL 末尾**不带** `/v1`：
 listen: ":8080"              # 后端监听端口（按需修改）
 upstream_url: "https://your-upstream-api.com/compatible-mode/v1"
 public_url: "https://your-domain.com"  # 前端展示用的公开地址，留空则自动拼接为请求的 hostname:listen端口
+admin_password: "changeme"   # 管理后台登录密码，首次启动自动加密；留空则不启用登录保护
 
 accounts:
   - alias: "账号A"
@@ -119,7 +122,7 @@ accounts:
     ak_secret: "..."         # AccessKey Secret
 ```
 
-> **端口配置**：修改 `listen` 后，需同步更新 `docker-compose.yml` 和 nginx 配置中的端口映射。建议使用 `./scripts/deploy.sh` 交互式部署脚本，它会自动从 config.yaml 读取端口并同步到各配置文件中。
+> **端口配置**：修改 `listen` 后，需同步更新 `caddy/Caddyfile` 中的端口。建议使用 `./scripts/deploy.sh` 交互式部署脚本，它会自动从 config.yaml 读取端口并同步到各配置文件中。
 
 需要授予余额查询相关权限。
 
@@ -127,9 +130,11 @@ accounts:
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| POST | `/admin/login` | 登录，返回 Bearer token |
 | GET | `/admin/accounts` | 账号池状态列表 |
 | POST | `/admin/accounts` | 添加账号（JSON body） |
 | DELETE | `/admin/accounts` | 清空所有账号 |
+| DELETE | `/admin/accounts/:index` | 删除指定账号（先禁用再移除） |
 | POST | `/admin/accounts/:index/toggle` | 启用/停用 |
 | POST | `/admin/accounts/:index/refresh` | 立即查询余额 |
 | POST | `/admin/accounts/:index/cooldown/clear` | 解除冷却 |
