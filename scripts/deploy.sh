@@ -96,83 +96,32 @@ EOF
 
 log "Generated backend/config.yaml"
 
-# ── Nginx setup ────────────────────────────────────────────────
+# ── Caddy setup ────────────────────────────────────────────────
 echo ""
-read -rp "Set up Nginx reverse proxy with HTTPS? (y/N): " SETUP_NGINX
-SETUP_NGINX="${SETUP_NGINX:-n}"
+info "Caddy is included in Docker Compose and handles reverse proxying."
+info "Leave domain empty to use HTTP-only mode (:80) — suitable for internal/private deployments."
+read -rp "Domain for automatic HTTPS (leave empty for HTTP-only): " DOMAIN
 
-if [[ "$SETUP_NGINX" =~ ^[Yy] ]]; then
-    check_cmd nginx
-
-    read -rp "Domain name (e.g. api.example.com): " DOMAIN
-
-    if [ -z "$DOMAIN" ]; then
-        err "Domain name is required for Nginx setup."
-        exit 1
-    fi
-
-    # Update public_url in config
-    if [ -z "$PUBLIC_URL" ]; then
-        sed -i "s|^listen: .*|listen: \":${LISTEN_PORT}\"\npublic_url: \"https://${DOMAIN}\"|" backend/config.yaml
-        # Remove duplicate listen line
-        awk '!seen[$0]++' backend/config.yaml > /tmp/bb_config && mv /tmp/bb_config backend/config.yaml
-    fi
-
-    # Copy and customize nginx config
-    cp nginx/budgetbridge.conf /etc/nginx/conf.d/budgetbridge.conf
-    sed -i "s/your-domain.com/${DOMAIN}/g" /etc/nginx/conf.d/budgetbridge.conf
-
-    # Update port placeholders
-    sed -i "s/__BACKEND_PORT__/${LISTEN_PORT}/g" /etc/nginx/conf.d/budgetbridge.conf
-    sed -i "s/__FRONTEND_PORT__/${FRONTEND_PORT}/g" /etc/nginx/conf.d/budgetbridge.conf
-
-    # Check if certbot is available
-    if command -v certbot &>/dev/null; then
-        info "Obtaining SSL certificate with certbot..."
-        certbot certonly --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null || {
-            warn "Auto cert failed. Run manually:"
-            echo "  sudo certbot --nginx -d ${DOMAIN}"
-        }
-    else
-        warn "certbot not found. Install and run:"
-        echo "  sudo apt install certbot python3-certbot-nginx"
-        echo "  sudo certbot --nginx -d ${DOMAIN}"
-    fi
-
-    nginx -t && systemctl reload nginx
-    log "Nginx configured for ${DOMAIN}"
+if [ -n "$DOMAIN" ] && [ -z "$PUBLIC_URL" ]; then
+    # Auto-set public_url when domain is provided
+    sed -i "s|^listen: .*|listen: \":${LISTEN_PORT}\"\npublic_url: \"https://${DOMAIN}\"|" backend/config.yaml
+    awk '!seen[$0]++' backend/config.yaml > /tmp/bb_config && mv /tmp/bb_config backend/config.yaml
+    log "public_url set to https://${DOMAIN}"
 fi
 
 # ── Docker Compose ─────────────────────────────────────────────
 echo ""
 info "Starting BudgetBridge with Docker Compose..."
 
-# Replace port placeholders in docker-compose.yml
-sed -i "s/__BACKEND_PORT__/${LISTEN_PORT}/g" docker-compose.yml
-sed -i "s/__FRONTEND_PORT__/${FRONTEND_PORT}/g" docker-compose.yml
-
-# Replace port placeholder in frontend nginx config for Docker build
-sed -i "s/__BACKEND_PORT__/${LISTEN_PORT}/g" frontend/nginx.conf
-
-# If using Nginx externally, bind to localhost only
-if [[ "$SETUP_NGINX" =~ ^[Yy] ]]; then
-    # Create override for production
-    cat > docker-compose.override.yml << EOF
-services:
-  backend:
-    ports:
-      - "127.0.0.1:${LISTEN_PORT}:${LISTEN_PORT}"
-  frontend:
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT}:80"
-EOF
-    log "Created docker-compose.override.yml (localhost-only ports)"
-fi
+# Fill Caddyfile placeholders
+CADDYFILE_HOST="${DOMAIN:-:80}"
+sed -i "s/__DOMAIN__/${CADDYFILE_HOST}/g" caddy/Caddyfile
+sed -i "s/__BACKEND_PORT__/${LISTEN_PORT}/g" caddy/Caddyfile
 
 docker compose up -d --build
 
 # Restore template files to keep repo clean
-git checkout -- docker-compose.yml frontend/nginx.conf
+git checkout -- caddy/Caddyfile
 
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
@@ -180,15 +129,15 @@ echo -e "${GREEN}    BudgetBridge is running!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
 
-if [[ "$SETUP_NGINX" =~ ^[Yy] ]]; then
+if [ -n "$DOMAIN" ]; then
     echo -e "  Frontend:  ${BLUE}https://${DOMAIN}${NC}"
     echo -e "  OpenAI:    ${BLUE}https://${DOMAIN}/v1${NC}"
     echo -e "  Anthropic: ${BLUE}https://${DOMAIN}${NC}"
 else
     IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
-    echo -e "  Frontend:  ${BLUE}http://${IP}:${FRONTEND_PORT}${NC}"
-    echo -e "  OpenAI:    ${BLUE}http://${IP}:${LISTEN_PORT}/v1${NC}"
-    echo -e "  Anthropic: ${BLUE}http://${IP}:${LISTEN_PORT}${NC}"
+    echo -e "  Frontend:  ${BLUE}http://${IP}${NC}"
+    echo -e "  OpenAI:    ${BLUE}http://${IP}/v1${NC}"
+    echo -e "  Anthropic: ${BLUE}http://${IP}${NC}"
 fi
 
 echo ""

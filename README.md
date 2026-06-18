@@ -55,7 +55,7 @@ docker compose up -d
 
 #### 生产环境
 
-- Nginx 配置：`nginx/budgetbridge.conf`
+- Caddy 配置：`caddy/Caddyfile`
 - 详细指南：[部署文档](docs/deployment.md)
 
 ## API 接入

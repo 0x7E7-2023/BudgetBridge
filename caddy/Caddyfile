@@ -1,0 +1,13 @@
+__DOMAIN__ {
+	handle /admin/* {
+		reverse_proxy backend:__BACKEND_PORT__
+	}
+	handle /v1/* {
+		reverse_proxy backend:__BACKEND_PORT__ {
+			flush_interval -1
+		}
+	}
+	handle {
+		reverse_proxy frontend:80
+	}
+}

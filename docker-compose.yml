@@ -3,14 +3,27 @@ services:
     build: ./backend
     volumes:
       - ./backend/config.yaml:/app/config.yaml:ro
-    ports:
-      - "__BACKEND_PORT__:__BACKEND_PORT__"
     restart: unless-stopped
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
     ports:
-      - "__FRONTEND_PORT__:80"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - backend
+      - frontend
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
