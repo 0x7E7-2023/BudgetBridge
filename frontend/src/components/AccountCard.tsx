@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Power, Timer, CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react'
+import { RefreshCw, Power, Timer, CheckCircle2, XCircle, Clock, TrendingUp, Trash2 } from 'lucide-react'
 import type { AccountStatus } from '../types'
 
 function StatusIcon({ account }: { account: AccountStatus }) {
@@ -52,6 +52,7 @@ export function AccountCard({ account, onUpdate, compact = false }: {
   account: AccountStatus; onUpdate: () => Promise<void>; compact?: boolean
 }) {
   const [busy, setBusy] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const call = async (path: string, key: string) => {
     setBusy(key)
@@ -60,6 +61,22 @@ export function AccountCard({ account, onUpdate, compact = false }: {
       await onUpdate()
     } finally {
       setBusy(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 3000)
+      return
+    }
+    setBusy('delete')
+    try {
+      await fetch(`/admin/accounts/${account.index}`, { method: 'DELETE' })
+      await onUpdate()
+    } finally {
+      setBusy(null)
+      setConfirmDelete(false)
     }
   }
 
@@ -95,6 +112,10 @@ export function AccountCard({ account, onUpdate, compact = false }: {
           <IconBtn icon={<Timer className="w-3.5 h-3.5" />}
             onClick={() => call('cooldown/clear', 'clear')} disabled={!!busy} title="解冻" />
         )}
+        <IconBtn icon={<Trash2 className="w-3.5 h-3.5" />}
+          onClick={handleDelete} disabled={!!busy}
+          variant={confirmDelete ? 'danger' : 'default'}
+          title={confirmDelete ? '再次点击确认删除' : '删除'} />
       </div>
     </div>
   )
@@ -153,6 +174,10 @@ export function AccountCard({ account, onUpdate, compact = false }: {
           <Btn icon={<Timer className="w-3.5 h-3.5" />}
             label="解冻" onClick={() => call('cooldown/clear', 'clear')} disabled={!!busy} />
         )}
+        <Btn icon={<Trash2 className="w-3.5 h-3.5" />}
+          label={confirmDelete ? '确认删除' : '删除'}
+          onClick={handleDelete} disabled={!!busy}
+          variant={confirmDelete ? 'danger' : 'default'} />
       </div>
     </div>
   )

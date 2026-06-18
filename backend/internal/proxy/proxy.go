@@ -155,6 +155,20 @@ func ClearCooldown(p *pool.Pool) gin.HandlerFunc {
 	}
 }
 
+func DeleteAccount(p *pool.Pool, save func([]pool.AccountConfig) error) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		idx, err := strconv.Atoi(c.Param("index"))
+		if err != nil || !p.Remove(idx) {
+			c.JSON(400, gin.H{"error": "invalid index"})
+			return
+		}
+		if err := save(p.Configs()); err != nil {
+			log.Printf("[warn] save config: %v", err)
+		}
+		c.JSON(200, gin.H{"ok": true})
+	}
+}
+
 func RefreshAccount(p *pool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idx, err := strconv.Atoi(c.Param("index"))

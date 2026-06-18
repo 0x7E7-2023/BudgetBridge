@@ -156,6 +156,27 @@ func (p *Pool) ClearCooldown(idx int) bool {
 	return true
 }
 
+func (p *Pool) Remove(idx int) bool {
+	if idx < 0 || idx >= len(p.accounts) {
+		return false
+	}
+	acc := p.accounts[idx]
+	// Disable first so Next() won't pick it up
+	acc.mu.Lock()
+	acc.Enabled = false
+	acc.mu.Unlock()
+	// Evict any sticky sessions pointing to this account
+	p.sessMu.Lock()
+	for k, e := range p.sessions {
+		if e.acc == acc {
+			delete(p.sessions, k)
+		}
+	}
+	p.sessMu.Unlock()
+	p.accounts = append(p.accounts[:idx], p.accounts[idx+1:]...)
+	return true
+}
+
 func (p *Pool) Clear() {
 	p.accounts = nil
 }
