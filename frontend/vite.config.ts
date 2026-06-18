@@ -16,6 +16,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: frontendPort,
+    host: '0.0.0.0',
     proxy: {
       "/admin": backend,
       "/v1": backend,
