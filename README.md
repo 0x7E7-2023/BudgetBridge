@@ -18,7 +18,7 @@
 
 ```powershell
 # 1. 配置账号
-copy backend\config.yaml.example backend\config.yaml
+copy backend\config.yaml.example config.yaml
 # 编辑 config.yaml，填入真实的 api_key / ak_id / ak_secret
 
 # 2. 编辑 config.yaml，填入真实的 api_key / ak_id / ak_secret
